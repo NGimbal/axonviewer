@@ -1,0 +1,26 @@
+html, body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+}
+
+body{
+  display: flex;
+  background-color: #dae9f2;
+}
+
+#c {
+  width: 75%;
+  height: 75%;
+  display: block;
+  border-radius: 50px;
+  border-radius: 6px;
+  /* background: #d0ebfb; */
+  box-shadow:  20px 20px 60px #b1c8d5, 
+              -20px -20px 60px #efffff;
+  margin: auto;
+}
+
+canvas:focus, input:focus{
+  outline: none;
+}

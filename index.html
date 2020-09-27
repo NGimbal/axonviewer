@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Axon Viewer</title>
+    <!-- CSS Style -->
+    <link rel="stylesheet" href="axonViewer.css">
+    <link rel="stylesheet" href="contextMenu.css">
+
+    <!-- Material Icons -->
+    <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
+  </head>
+  
+  <body>
+    <!-- JS Code -->
+    <script type="module" src="axonViewer.js"></script>
+    <script type="module" src="contextMenu.js"></script>
+
+    <!-- Draggable User Interface -->
+    <div id="contextMenu">
+      <i id="closeMenu" class="material-icons">highlight_off</i>
+      <p class="inputLabel">Displacement</p>
+      <input type="range"/>
+      <hr/>
+      <p class="inputLabel">Displacement Speed</p>
+      <input type="range"/>
+      <hr/>
+      <p class="inputLabel">Opacity</p>
+      <input type="range"/>
+    </div>
+    <!-- Canvas -->
+    <canvas id="c"></canvas>
+
+    <!-- Download Link -->
+    <a id="downloadAnchorElem" style="display:none"></a>
+  </body>
+</html>
