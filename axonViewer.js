@@ -25,7 +25,7 @@ function init() {
                                       premultipliedAlpha: false,
                                       });
   
-  renderer.setClearColor( new THREE.Color(0xdae9f2), 0 );
+  renderer.setClearColor( new THREE.Color(0xffffff), 0 );
   renderer.setPixelRatio( window.devicePixelRatio );
 
   aspect = canvas.clientWidth / canvas.clientHeight;
@@ -73,33 +73,56 @@ function init() {
   var loader = new Rhino3dmLoader();
   loader.setLibraryPath( './libs/rhino3dm/' );
 
-  loader.load( './simple.3dm', function ( object ) {
-    console.log(object);
-    console.log(object.children.length);
-    // Set Bounding Box
+  loader.load( './maison.3dm', function ( rhinoDoc ) {
+    console.log(rhinoDoc);
 
-    for(let i = 0; i < object.children.length; i++){
+    // Objective is to make a copy of the scene in which we preserve
+    // Rhino data i.e. ...userData.attributes and use scene graph in
+    // THREE js Object3D to make transformations
 
+    // First step is to make shallow copy of the rhinoDoc
+    let rhinoScene = new THREE.Object3D(rhinoDoc, false);
+
+    for(let i = 0; i < rhinoDoc.children.length; i++){
+      // if(rhinoDoc.children[i].type !== 'Object3D' && rhinoDoc.children[i].type !== 'Mesh') continue;
+      
       // Set Material from Rhino Display Color
-      let col = object.children[i].userData.attributes.objectColor;
+      let col = rhinoDoc.children[i].userData.attributes.drawColor;
 
       let mat = new THREE.MeshLambertMaterial( {
         color: new THREE.Color(col.r/255, col.g/255, col.b/255),
       } );
 
-      // Recenter geometry at Object3D bounding box
-      let box = new THREE.Box3().setFromObject(object.children[i]);
-      box.getCenter(object.children[i].position);
+      // let obj = new THREE.Object3D();
+      // if(rhinoDoc.children[i].type !== 'Object3D') {
+      //   obj.copy(new THREE.Object3D().add(rhinoDoc.children[i].copy));
+      // } else {
+      //   obj.copy(rhinoDoc.children[i]);
+      // }
+      // rhinoScene.add(obj);
+      // console.log(obj);
+      
+      
 
-      for (let m of object.children[i].children){
-        m.material = mat;
+      if (rhinoDoc.children[i].children.length < 1){
+        rhinoDoc.children[i].material = mat;
         
-        box.getCenter(m.position);
-        m.position.multiplyScalar(-1);
+        // box.getCenter(rhinoDoc.children[i].position);
+        // rhinoDoc.children[i].position.multiplyScalar(-1);
+      } else {
+        let box = new THREE.Box3().setFromObject(rhinoDoc.children[i]);
+        box.getCenter(rhinoDoc.children[i].position);
+
+        for (let m of rhinoDoc.children[i].children){
+          m.material = mat;
+          
+          box.getCenter(m.position);
+          m.position.multiplyScalar(-1);
+        }
       }
     }
-    scene.add( object );
-    sceneBox.setFromObject(object);
+    scene.add( rhinoDoc );
+    sceneBox.setFromObject(rhinoDoc);
     zoomToScene();
   });
   
@@ -129,26 +152,25 @@ function render(time) {
   }
 
   raycaster.setFromCamera(mouse, camera);
-
-  if(scene.children[4]){
+ 
+  scene.traverse((obj) => {
+      if(obj.material){
+        obj.material.emissiveIntensity = 0.0;
+      }
+  })
+  // change condition to find Rhino3d object
+  if(scene.children[3]){
     let intersects = raycaster.intersectObjects(scene.children, true);
     
     if(intersects.length > 0 ){
 
       let hover = intersects[0].object;
 
-      scene.traverse((obj) => {
-        if(obj !== hover){
-          if(obj.material){
-            obj.material.emissiveIntensity = 0.0;
-          }
-        }
-      })
-
       if(hover.type == "Mesh"){
         // Get parent of mesh
         let parent = hover.parent;
         let copy = parent.clone(true);
+        selection.push(parent);
 
         for(let c of copy.children){
           c.material.emissive.set(new THREE.Color(0xffeeee));
