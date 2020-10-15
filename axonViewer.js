@@ -11,7 +11,7 @@ THREE.Object3D.DefaultUp = new THREE.Vector3( 0, 0, 1 );
 let renderer, aspect, scene, camera, controls, sceneBox;
 
 // For hover / selection
-let raycaster, mouse, selection;
+let raycaster, mouse, selection, hover;
 
 // Initialize scene
 function init() {
@@ -33,7 +33,7 @@ function init() {
   // Orthographic Camera
   // https://threejs.org/docs/#api/en/cameras/OrthographicCamera
   camera = new THREE.OrthographicCamera(-aspect, aspect, 1, -1, 0, 20000);
-  camera.position.set(-100, -100, 100);
+  camera.position.set(-100, -100, 200);
   // Orbit Controls
   controls = new OrbitControls(camera, renderer.domElement);
   controls.update();
@@ -45,24 +45,28 @@ function init() {
   raycaster = new THREE.Raycaster;
   mouse = new THREE.Vector2();
   selection = [];
+  hover = {};
 
-  
   // Visualize origin
-  // var axesHelper = new THREE.AxesHelper( 200 );
-  // scene.add( axesHelper );
+  var axesHelper = new THREE.AxesHelper( 200 );
+  scene.add( axesHelper );
 
   // Lighting
   {				
-    scene.add( new THREE.AmbientLight( 0xFFEDBA, 0.1 ) );
-    // const dirLight = new THREE.DirectionalLight(0xFFFFFF, 0.8);
-    // dirLight.position.set(250, 250, 2000);
+    // scene.add( new THREE.AmbientLight( 0xffffff, 0.75 ) );
+
+    // let dirLight = new THREE.DirectionalLight(0x0000ff, 0.125);
+    // dirLight.position.set(100, 100, 400);
     // dirLight.lookAt(0,0,0);
     // scene.add(dirLight);
-    // let hemiLight = new THREE.HemisphereLight( 0xffffbb, 0x5544BB, 0.4 );
-    // scene.add( hemiLight );
-    var light = new THREE.HemisphereLight( 0xffffff, 0x080808, 1 );
-    light.position.set( - 10.25, 10, 10.25 );
-    scene.add( light );
+    // let dirLightHelper = new THREE.DirectionalLightHelper(dirLight, 15, 0xff0000);
+    // scene.add(dirLightHelper);
+
+    let hemiLight = new THREE.HemisphereLight( 0xffffff, 0x080808, 0.75 );
+    hemiLight.position.set( 0, 0, 400 );
+    scene.add( hemiLight );
+    // let hemiLightHelper = new THREE.HemisphereLightHelper(hemiLight, 8, 0xff0000);
+    // scene.add( hemiLightHelper );
   }
 
   // Load Rhino File
@@ -75,9 +79,7 @@ function init() {
 
     rhinoDoc.name = "rhinoDoc";
 
-    for(let i = 0; i < rhinoDoc.children.length; i++){
-      // if(rhinoDoc.children[i].type !== 'Object3D' && rhinoDoc.children[i].type !== 'Mesh') continue;
-      
+    for(let i = 0; i < rhinoDoc.children.length; i++){      
       // Set Material from Rhino Display Color
       let col = rhinoDoc.children[i].userData.attributes.drawColor;
 
@@ -102,15 +104,17 @@ function init() {
     }
 
     scene.add( rhinoDoc );
-    console.log(scene);
-    console.log(scene.children.filter((a) => a.type === 'Object3D').length > 0);
+
     sceneBox.setFromObject(rhinoDoc);
+    let boxHelper = new THREE.Box3Helper(sceneBox, 0x0000ff);
+    scene.add(boxHelper);
     zoomToScene();
   });
-  
+
   // Hover
-  document.querySelector("#c").addEventListener('mousemove', mouseMove, false);
-  document.querySelector("#c").addEventListener('mouseup', mouseUp, false);
+  document.querySelector("#c").addEventListener('mousemove', mouseMove);
+  document.querySelector("#c").addEventListener('pointerdown', mouseUp);
+
   requestAnimationFrame(render);
 }
 
@@ -135,11 +139,21 @@ function render(time) {
 
   raycaster.setFromCamera(mouse, camera);
  
-  scene.traverse((obj) => {
-      if(obj.material){
-        obj.material.emissiveIntensity = 0.0;
-      }
-  })
+  // scene.traverse((obj) => {
+  //     if(obj.material){
+  //       obj.material.emissiveIntensity = 0.0;
+  //     }
+  // })
+
+  if(typeof hover.parent !== 'undefined'){
+    hover.traverse((m) => {
+      // console.log(m);
+      if(!m.material) return;
+      m.material.emissiveIntensity = 0.0;
+    })
+    hover = {};
+    // controls.enabled = true;
+  }
 
   // Using the name for our Rhino document
   let doc = scene.children.find(a => a.name === 'rhinoDoc');
@@ -147,26 +161,28 @@ function render(time) {
   if(typeof doc !== 'undefined'){
     
     let intersects = raycaster.intersectObjects(doc.children, true);
-    // console.log(intersects);
     
+    // If we've intersected things
     if(intersects.length > 0 ){
 
-      let hover = intersects[0].object;
+      // Intersects are sorted by distance to camera
+      // Item 0 is the closest object
+      hover = intersects[0].object;
 
-      if(hover.type == "Mesh"){
-        // Get parent of mesh
-        if(hover.parent.name !== 'rhinoDoc'){
-          hover = hover.parent;
-          
-          for(let c of hover.children){
-            c.material.emissive.set(new THREE.Color(0xffeeee));
-            c.material.emissiveIntensity = 0.65;
-          }
-        } else {
-            hover.material.emissive.set(new THREE.Color(0xffeeee));
-            hover.material.emissiveIntensity = 0.65;
-        }
+      // Grab the top level object that has access to
+      // attributes from Rhino
+      while(hover.parent.name !== 'rhinoDoc'){
+        hover = hover.parent;
       }
+
+      // Traverse is called on hover and all descendants
+      hover.traverse((m) => {
+        // Object3D won't have a material, just descendants
+        if(!m.material) return;
+        m.material.emissive.set(new THREE.Color(0xffeeee));
+        m.material.emissiveIntensity = 0.35;
+      })
+      // controls.enabled = false;
     }
   }
 
@@ -180,9 +196,8 @@ function zoomToScene () {
   // Choose largest dimension of scenebox to set the larger dimension of the viewport
   let side = Math.max(sceneBox.max.x - sceneBox.min.x, sceneBox.max.z - sceneBox.min.z);
 
-  // Camera position and controls can't be the same
+  // Note: camera position and controls can't be the same
   controls.target.set((sceneBox.max.x - sceneBox.min.x)/2, (sceneBox.max.y - sceneBox.min.y)/2, (sceneBox.max.z - sceneBox.min.z)/2);
-  // camera.position.set((sceneBox.max.x - sceneBox.min.x) / 2, (sceneBox.max.y - sceneBox.min.y), (sceneBox.max.z - sceneBox.min.z)/2);
   
   camera.left = aspect * side * -1;
   camera.right = aspect * side;
@@ -219,6 +234,8 @@ function getCanvasRelativePosition(event) {
 // Mouse coords are in "Normalized Device Coordinates"
 // Meaning (-1 , 1) with Y flipped
 function mouseMove(e){
+  e.stopPropagation();
+  // e.preventDefault();
   // let rect = canvas.getBoundingClientRect();
   let canvas = renderer.domElement;
   let pos = getCanvasRelativePosition(e);
@@ -230,7 +247,31 @@ function mouseMove(e){
 }
 
 function mouseUp(e){
-  
+  // e.preventDefault();
+  e.stopPropagation();
+
+  console.log(hover);
+  if(typeof hover.parent !== 'undefined' && !selection.filter(a => a.uuid === hover.uuid).length){
+    selection.push(hover);
+    selection.map(a => a.traverse((b) => {
+        if(b.material) b.material.color.set(0xff0000);
+        return b;
+      })
+    );
+    hover = {};
+    console.log(selection);
+  } else {
+    // deselect
+    selection.map(a => a.traverse((b) => {
+        let col = a.userData.attributes.drawColor;
+        let color = new THREE.Color(col.r/255, col.g/255, col.b/255);
+        if(b.material) b.material.color.set(color);
+        return b;
+      })
+    );
+    selection.length = 0;
+  }
+  // controls.enabled = true;
 }
 
 init();
