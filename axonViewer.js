@@ -13,8 +13,6 @@ let renderer, aspect, scene, camera, controls, sceneBox;
 // For hover / selection
 let raycaster, mouse, selection;
 
-let outlineMat = new THREE.MeshBasicMaterial( { color: 0xff0000, side: THREE.BackSide, depthWrite: false } );
-
 // Initialize scene
 function init() {
 
@@ -34,34 +32,32 @@ function init() {
   
   // Orthographic Camera
   // https://threejs.org/docs/#api/en/cameras/OrthographicCamera
-  camera = new THREE.OrthographicCamera(-aspect, aspect, 1, -1, -5000, 5000);
-  
+  camera = new THREE.OrthographicCamera(-aspect, aspect, 1, -1, 0, 20000);
+  camera.position.set(-100, -100, 100);
+  // Orbit Controls
   controls = new OrbitControls(camera, renderer.domElement);
-  
+  controls.update();
+
+  // Scene bounding box
   sceneBox = new THREE.Box3();
 
-  // For hover / selection                                 
+  // hover / selection                                 
   raycaster = new THREE.Raycaster;
   mouse = new THREE.Vector2();
   selection = [];
-  // selection = new THREE.Object3D();
-  // selection.visible = false;
-  // scene.add(selection);
 
-  controls.update();
-                                      
-  var axesHelper = new THREE.AxesHelper( 200 );
-  scene.add( axesHelper );
+  
+  // Visualize origin
+  // var axesHelper = new THREE.AxesHelper( 200 );
+  // scene.add( axesHelper );
 
   // Lighting
   {				
     scene.add( new THREE.AmbientLight( 0xFFEDBA, 0.1 ) );
-    
     // const dirLight = new THREE.DirectionalLight(0xFFFFFF, 0.8);
     // dirLight.position.set(250, 250, 2000);
     // dirLight.lookAt(0,0,0);
     // scene.add(dirLight);
-
     // let hemiLight = new THREE.HemisphereLight( 0xffffbb, 0x5544BB, 0.4 );
     // scene.add( hemiLight );
     var light = new THREE.HemisphereLight( 0xffffff, 0x080808, 1 );
@@ -74,14 +70,10 @@ function init() {
   loader.setLibraryPath( './libs/rhino3dm/' );
 
   loader.load( './maison.3dm', function ( rhinoDoc ) {
-    console.log(rhinoDoc);
+    // We can see properties of rhinoDoc
+    // console.log(rhinoDoc);
 
-    // Objective is to make a copy of the scene in which we preserve
-    // Rhino data i.e. ...userData.attributes and use scene graph in
-    // THREE js Object3D to make transformations
-
-    // First step is to make shallow copy of the rhinoDoc
-    let rhinoScene = new THREE.Object3D(rhinoDoc, false);
+    rhinoDoc.name = "rhinoDoc";
 
     for(let i = 0; i < rhinoDoc.children.length; i++){
       // if(rhinoDoc.children[i].type !== 'Object3D' && rhinoDoc.children[i].type !== 'Mesh') continue;
@@ -91,24 +83,11 @@ function init() {
 
       let mat = new THREE.MeshLambertMaterial( {
         color: new THREE.Color(col.r/255, col.g/255, col.b/255),
+        side: THREE.DoubleSide,
       } );
-
-      // let obj = new THREE.Object3D();
-      // if(rhinoDoc.children[i].type !== 'Object3D') {
-      //   obj.copy(new THREE.Object3D().add(rhinoDoc.children[i].copy));
-      // } else {
-      //   obj.copy(rhinoDoc.children[i]);
-      // }
-      // rhinoScene.add(obj);
-      // console.log(obj);
-      
-      
 
       if (rhinoDoc.children[i].children.length < 1){
         rhinoDoc.children[i].material = mat;
-        
-        // box.getCenter(rhinoDoc.children[i].position);
-        // rhinoDoc.children[i].position.multiplyScalar(-1);
       } else {
         let box = new THREE.Box3().setFromObject(rhinoDoc.children[i]);
         box.getCenter(rhinoDoc.children[i].position);
@@ -121,7 +100,10 @@ function init() {
         }
       }
     }
+
     scene.add( rhinoDoc );
+    console.log(scene);
+    console.log(scene.children.filter((a) => a.type === 'Object3D').length > 0);
     sceneBox.setFromObject(rhinoDoc);
     zoomToScene();
   });
@@ -158,9 +140,14 @@ function render(time) {
         obj.material.emissiveIntensity = 0.0;
       }
   })
-  // change condition to find Rhino3d object
-  if(scene.children[3]){
-    let intersects = raycaster.intersectObjects(scene.children, true);
+
+  // Using the name for our Rhino document
+  let doc = scene.children.find(a => a.name === 'rhinoDoc');
+
+  if(typeof doc !== 'undefined'){
+    
+    let intersects = raycaster.intersectObjects(doc.children, true);
+    // console.log(intersects);
     
     if(intersects.length > 0 ){
 
@@ -168,18 +155,20 @@ function render(time) {
 
       if(hover.type == "Mesh"){
         // Get parent of mesh
-        let parent = hover.parent;
-        let copy = parent.clone(true);
-        selection.push(parent);
-
-        for(let c of copy.children){
-          c.material.emissive.set(new THREE.Color(0xffeeee));
-          c.material.emissiveIntensity = 0.65;
+        if(hover.parent.name !== 'rhinoDoc'){
+          hover = hover.parent;
+          
+          for(let c of hover.children){
+            c.material.emissive.set(new THREE.Color(0xffeeee));
+            c.material.emissiveIntensity = 0.65;
+          }
+        } else {
+            hover.material.emissive.set(new THREE.Color(0xffeeee));
+            hover.material.emissiveIntensity = 0.65;
         }
       }
     }
   }
-  
 
   renderer.render(scene, camera);
 
@@ -193,7 +182,7 @@ function zoomToScene () {
 
   // Camera position and controls can't be the same
   controls.target.set((sceneBox.max.x - sceneBox.min.x)/2, (sceneBox.max.y - sceneBox.min.y)/2, (sceneBox.max.z - sceneBox.min.z)/2);
-  camera.position.set((sceneBox.max.x - sceneBox.min.x) / 2, (sceneBox.max.y - sceneBox.min.y), (sceneBox.max.z - sceneBox.min.z)/2);
+  // camera.position.set((sceneBox.max.x - sceneBox.min.x) / 2, (sceneBox.max.y - sceneBox.min.y), (sceneBox.max.z - sceneBox.min.z)/2);
   
   camera.left = aspect * side * -1;
   camera.right = aspect * side;
@@ -212,17 +201,32 @@ function resizeRendererToDisplaySize(renderer) {
   const height = canvas.clientHeight | 0;
   const needResize = canvas.width !== width * pixelRatio || canvas.height !== height * pixelRatio ;
   if (needResize) {
-    // console.log("hi!")
     renderer.setSize(width, height, false);
   }
   return needResize;
 }
 
-function mouseMove(e){
+//https://threejsfundamentals.org/threejs/lessons/threejs-picking.html
+function getCanvasRelativePosition(event) {
   let canvas = renderer.domElement;
+  let rect = canvas.getBoundingClientRect();
+  return {
+    x: (event.clientX - rect.left) * canvas.width  / rect.width,
+    y: (event.clientY - rect.top ) * canvas.height / rect.height,
+  };
+}
 
-  mouse.x = ( e.offsetX / canvas.clientWidth ) * 2 - 1;
-  mouse.y = - ( e.offsetY / canvas.clientHeight ) * 2 + 1;
+// Mouse coords are in "Normalized Device Coordinates"
+// Meaning (-1 , 1) with Y flipped
+function mouseMove(e){
+  // let rect = canvas.getBoundingClientRect();
+  let canvas = renderer.domElement;
+  let pos = getCanvasRelativePosition(e);
+
+  mouse.x = (pos.x / canvas.width) * 2 - 1;
+  mouse.y = (pos.y / canvas.height) * -2 + 1;
+  
+  // console.log(mouse);
 }
 
 function mouseUp(e){
