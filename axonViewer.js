@@ -38,19 +38,19 @@ function init() {
   camera = new THREE.OrthographicCamera(-aspect, aspect, 1, -1, 0, 20000);
   camera.position.set(-500, -500, 200);
 
-  // Orbit Controls
-  controls = new OrbitControls(camera, renderer.domElement);
-  controls.update();
+  // 2a. Orbit Controls
+  // controls = new OrbitControls(camera, renderer.domElement);
+  // controls.update();
 
   // Scene bounding box
   sceneBox = new THREE.Box3();
 
   // hover / selection                                 
-  raycaster = new THREE.Raycaster;
+  // 4a. raycaster = new THREE.Raycaster;
   // Init mouse position so it's not sitting at the center of the screen
-  mouse = new THREE.Vector2(-1000);
-  selection = [];
-  hover = {};
+  // mouse = new THREE.Vector2(-1000);
+  // selection = [];
+  // hover = {};
 
   // Visualize origin
   // var axesHelper = new THREE.AxesHelper( 200 );
@@ -76,7 +76,7 @@ function init() {
     // scene.add( hemiLightHelper );
   }
 
-  // Load Rhino File
+  // 1a. Load Rhino File
   var loader = new Rhino3dmLoader();
   loader.setLibraryPath( './libs/rhino3dm/' );
 
@@ -187,6 +187,21 @@ function render() {
   renderer.render(scene, camera);
 }
 
+// Animate
+function animate(){
+
+  // 2b. Orbit Controls
+  // controls.update();
+
+  // 4b. Selection
+  // updateSelState();
+
+  render();
+
+  requestAnimationFrame(animate);
+}
+
+
 function updateSelState(){
   // Set our raycaster to begin selecting objects
   raycaster.setFromCamera(mouse, camera);
@@ -233,19 +248,6 @@ function updateSelState(){
   }
 }
 
-// Animate
-function animate(){
-
-  // Update Orbit Controls
-  controls.update();
-
-  updateSelState();
-
-  render();
-
-  requestAnimationFrame(animate);
-}
-
 // Zoom ortho camera to sceneBox
 function zoomToScene () {
   // Choose largest dimension of scenebox to set the larger dimension of the viewport
@@ -264,6 +266,7 @@ function zoomToScene () {
 }
 
 // Resize canvas
+// https://threejsfundamentals.org/threejs/lessons/threejs-responsive.html
 function resizeRendererToDisplaySize(renderer) {
   const canvas = renderer.domElement;
   const pixelRatio = window.devicePixelRatio;
