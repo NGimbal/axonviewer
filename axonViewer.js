@@ -18,7 +18,7 @@ let displacementPos = 0;
 
 // Initialize scene
 function init() {
-
+  // 0. Basic Setup
   const canvas = document.querySelector('#c');
   renderer = new THREE.WebGL1Renderer({
                                       canvas,
@@ -37,6 +37,7 @@ function init() {
   // https://threejs.org/docs/#api/en/cameras/OrthographicCamera
   camera = new THREE.OrthographicCamera(-aspect, aspect, 1, -1, 0, 20000);
   camera.position.set(-500, -500, 200);
+
   // Orbit Controls
   controls = new OrbitControls(camera, renderer.domElement);
   controls.update();
@@ -52,8 +53,8 @@ function init() {
   hover = {};
 
   // Visualize origin
-  var axesHelper = new THREE.AxesHelper( 200 );
-  scene.add( axesHelper );
+  // var axesHelper = new THREE.AxesHelper( 200 );
+  // scene.add( axesHelper );
 
   // Lighting
   {
@@ -79,9 +80,14 @@ function init() {
   var loader = new Rhino3dmLoader();
   loader.setLibraryPath( './libs/rhino3dm/' );
 
-  loader.load( './maison.3dm', function ( rhinoDoc ) {
+  loader.load( './models/maison.3dm', function ( rhinoDoc ) {
     // We can see properties of rhinoDoc
     // console.log(rhinoDoc);
+
+    // Init scene Bounding box
+    sceneBox.setFromObject(rhinoDoc);
+    // let boxHelper = new THREE.Box3Helper(sceneBox, 0x0000ff);
+    // scene.add(boxHelper);
 
     // Name to identify rhino object node
     rhinoDoc.name = 'rhinoDoc';
@@ -100,7 +106,10 @@ function init() {
       // we need to recalculate their positions based on their bounding box
       
       // Meshes that are parented directly to the scene
-      if(!child.children.length && child.parent.name === 'rhinoDoc'){
+      if(!child.children.length && 
+              child.parent.name === 'rhinoDoc' && 
+              typeof child.geometry !== 'undefined'){
+
         let box = new THREE.Box3().setFromObject(child);
         
         // let boxHelper = new THREE.Box3Helper(box, 0x00ffff);
@@ -132,18 +141,13 @@ function init() {
       }
 
       // Can we automate displacement paths?
-      let explode = new THREE.Vector3(0.0).sub(child.position).normalize().multiplyScalar(-1);
+      let explode = sceneBox.getCenter(new THREE.Vector3()).sub(child.position).normalize().multiplyScalar(-1);
       let maxExplode = 200;
       
       child.userData.explode = {vec: explode, max: maxExplode};
     })
 
     scene.add( rhinoDoc );
-
-    sceneBox.setFromObject(rhinoDoc);
-    
-    let boxHelper = new THREE.Box3Helper(sceneBox, 0x0000ff);
-    scene.add(boxHelper);
     
     zoomToScene();
   });
@@ -152,16 +156,17 @@ function init() {
   document.querySelector("#c").addEventListener('mousemove', mouseMove);
   document.querySelector("#c").addEventListener('pointerup', mouseUp);
 
+  // Axon Explode
   document.querySelector("#globalDisplacement").addEventListener('input', explodeDiagram);
 
-  requestAnimationFrame(render);
+  // Screenshot
+  const elem = document.querySelector('#screenshot').addEventListener('click', screenshot);
+
+  requestAnimationFrame(animate);
 }
 
 // Render scene
 function render() {
-
-  // Update Orbit Controls
-  controls.update();
   
   // If canvas needs to be resized
   if (resizeRendererToDisplaySize(renderer)) {
@@ -179,9 +184,13 @@ function render() {
     controls.update();
   }
 
+  renderer.render(scene, camera);
+}
+
+function updateSelState(){
   // Set our raycaster to begin selecting objects
   raycaster.setFromCamera(mouse, camera);
- 
+  
   // Check if hover is a valid object,
   // If so, reset material and hover object
   if(typeof hover.parent !== 'undefined'){
@@ -222,10 +231,19 @@ function render() {
       // controls.enabled = false;
     }
   }
+}
 
-  renderer.render(scene, camera);
+// Animate
+function animate(){
 
-  requestAnimationFrame(render);
+  // Update Orbit Controls
+  controls.update();
+
+  updateSelState();
+
+  render();
+
+  requestAnimationFrame(animate);
 }
 
 // Zoom ortho camera to sceneBox
@@ -284,7 +302,6 @@ function mouseMove(e){
 }
 
 function mouseUp(e){
-  console.log(e);
   // prevent menu clicks from causing this to fire
   if(e.target !== document.querySelector('#c')) return;
 
@@ -348,6 +365,27 @@ function explodeDiagram(e){
     c.translateOnAxis(vec, dist * max);
   }
 }
+
+function screenshot(e) {
+  render();
+  let canvas = renderer.domElement;
+  canvas.toBlob((blob) => {
+    saveBlob(blob, `screencapture-${canvas.width}x${canvas.height}.png`);
+  });
+}
+
+// https://threejsfundamentals.org/threejs/lessons/threejs-tips.html#screenshot
+const saveBlob = (function() {
+  const a = document.createElement('a');
+  document.body.appendChild(a);
+  a.style.display = 'none';
+  return function saveData(blob, fileName) {
+     const url = window.URL.createObjectURL(blob);
+     a.href = url;
+     a.download = fileName;
+     a.click();
+  };
+}());
 
 init();
 
