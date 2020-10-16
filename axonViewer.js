@@ -13,6 +13,9 @@ let renderer, aspect, scene, camera, controls, sceneBox;
 // For hover / selection
 let raycaster, mouse, selection, hover;
 
+// 0-1 percentage for explode displacement
+let displacementPos = 0;
+
 // Initialize scene
 function init() {
 
@@ -33,7 +36,7 @@ function init() {
   // Orthographic Camera
   // https://threejs.org/docs/#api/en/cameras/OrthographicCamera
   camera = new THREE.OrthographicCamera(-aspect, aspect, 1, -1, 0, 20000);
-  camera.position.set(-100, -100, 200);
+  camera.position.set(-500, -500, 200);
   // Orbit Controls
   controls = new OrbitControls(camera, renderer.domElement);
   controls.update();
@@ -43,7 +46,8 @@ function init() {
 
   // hover / selection                                 
   raycaster = new THREE.Raycaster;
-  mouse = new THREE.Vector2();
+  // Init mouse position so it's not sitting at the center of the screen
+  mouse = new THREE.Vector2(-1000);
   selection = [];
   hover = {};
 
@@ -52,9 +56,10 @@ function init() {
   scene.add( axesHelper );
 
   // Lighting
-  {				
-    // scene.add( new THREE.AmbientLight( 0xffffff, 0.75 ) );
+  {
+    scene.add( new THREE.AmbientLight( 0xffffff, 0.125 ) );
 
+    // Directional Light
     // let dirLight = new THREE.DirectionalLight(0x0000ff, 0.125);
     // dirLight.position.set(100, 100, 400);
     // dirLight.lookAt(0,0,0);
@@ -62,6 +67,7 @@ function init() {
     // let dirLightHelper = new THREE.DirectionalLightHelper(dirLight, 15, 0xff0000);
     // scene.add(dirLightHelper);
 
+    // Hemisphere Light
     let hemiLight = new THREE.HemisphereLight( 0xffffff, 0x080808, 0.75 );
     hemiLight.position.set( 0, 0, 400 );
     scene.add( hemiLight );
@@ -77,51 +83,87 @@ function init() {
     // We can see properties of rhinoDoc
     // console.log(rhinoDoc);
 
-    rhinoDoc.name = "rhinoDoc";
+    // Name to identify rhino object node
+    rhinoDoc.name = 'rhinoDoc';
 
-    for(let i = 0; i < rhinoDoc.children.length; i++){      
-      // Set Material from Rhino Display Color
-      let col = rhinoDoc.children[i].userData.attributes.drawColor;
+    // Iterate through rhinoDoc and set material from Rhino document
+    rhinoDoc.children.map(child => {
+      // Access attributes from the Rhino document
+      let col = child.userData.attributes.drawColor;
+      let color = new THREE.Color(col.r/255, col.g/255, col.b/255);
 
       let mat = new THREE.MeshLambertMaterial( {
-        color: new THREE.Color(col.r/255, col.g/255, col.b/255),
-        side: THREE.DoubleSide,
+        color: color,
       } );
 
-      if (rhinoDoc.children[i].children.length < 1){
-        rhinoDoc.children[i].material = mat;
-      } else {
-        let box = new THREE.Box3().setFromObject(rhinoDoc.children[i]);
-        box.getCenter(rhinoDoc.children[i].position);
+      // All objects have a position set to 0
+      // we need to recalculate their positions based on their bounding box
+      
+      // Meshes that are parented directly to the scene
+      if(!child.children.length && child.parent.name === 'rhinoDoc'){
+        let box = new THREE.Box3().setFromObject(child);
+        
+        // let boxHelper = new THREE.Box3Helper(box, 0x00ffff);
+        // scene.add(boxHelper);
 
-        for (let m of rhinoDoc.children[i].children){
-          m.material = mat;
-          
-          box.getCenter(m.position);
-          m.position.multiplyScalar(-1);
-        }
+        // Move child geometry to origin
+        let translation = new THREE.Vector3(0.0).sub(box.getCenter(new THREE.Vector3()));
+        child.geometry.translate(translation.x, translation.y, translation.z);
+
+        // Move position of child geometry to center of bounding box
+        box.getCenter(child.position);
+        
+        // Set mesh material
+        child.material = mat;
+      } else {
+        // Object3D with mesh children
+        let box = new THREE.Box3().setFromObject(child);
+        box.getCenter(child.position);
+
+        child.traverse(obj => {
+          if (child.uuid !== obj.uuid){
+            
+            box.getCenter(obj.position);
+            obj.position.multiplyScalar(-1);
+
+            obj.material = mat;
+          }
+        })
       }
-    }
+
+      // Can we automate displacement paths?
+      let explode = new THREE.Vector3(0.0).sub(child.position).normalize().multiplyScalar(-1);
+      let maxExplode = 200;
+      
+      child.userData.explode = {vec: explode, max: maxExplode};
+    })
 
     scene.add( rhinoDoc );
 
     sceneBox.setFromObject(rhinoDoc);
+    
     let boxHelper = new THREE.Box3Helper(sceneBox, 0x0000ff);
     scene.add(boxHelper);
+    
     zoomToScene();
   });
 
   // Hover
   document.querySelector("#c").addEventListener('mousemove', mouseMove);
-  document.querySelector("#c").addEventListener('pointerdown', mouseUp);
+  document.querySelector("#c").addEventListener('pointerup', mouseUp);
+
+  document.querySelector("#globalDisplacement").addEventListener('input', explodeDiagram);
 
   requestAnimationFrame(render);
 }
 
 // Render scene
-function render(time) {
+function render() {
+
+  // Update Orbit Controls
   controls.update();
   
+  // If canvas needs to be resized
   if (resizeRendererToDisplaySize(renderer)) {
     const canvas = renderer.domElement;
     aspect = canvas.clientWidth / canvas.clientHeight;
@@ -137,22 +179,17 @@ function render(time) {
     controls.update();
   }
 
+  // Set our raycaster to begin selecting objects
   raycaster.setFromCamera(mouse, camera);
  
-  // scene.traverse((obj) => {
-  //     if(obj.material){
-  //       obj.material.emissiveIntensity = 0.0;
-  //     }
-  // })
-
+  // Check if hover is a valid object,
+  // If so, reset material and hover object
   if(typeof hover.parent !== 'undefined'){
     hover.traverse((m) => {
-      // console.log(m);
       if(!m.material) return;
       m.material.emissiveIntensity = 0.0;
     })
     hover = {};
-    // controls.enabled = true;
   }
 
   // Using the name for our Rhino document
@@ -234,9 +271,9 @@ function getCanvasRelativePosition(event) {
 // Mouse coords are in "Normalized Device Coordinates"
 // Meaning (-1 , 1) with Y flipped
 function mouseMove(e){
-  e.stopPropagation();
-  // e.preventDefault();
-  // let rect = canvas.getBoundingClientRect();
+  // prevent menu clicks from causing this to fire
+  if(e.target !== document.querySelector('#c')) return;
+
   let canvas = renderer.domElement;
   let pos = getCanvasRelativePosition(e);
 
@@ -247,21 +284,39 @@ function mouseMove(e){
 }
 
 function mouseUp(e){
-  // e.preventDefault();
-  e.stopPropagation();
+  console.log(e);
+  // prevent menu clicks from causing this to fire
+  if(e.target !== document.querySelector('#c')) return;
 
-  console.log(hover);
-  if(typeof hover.parent !== 'undefined' && !selection.filter(a => a.uuid === hover.uuid).length){
-    selection.push(hover);
-    selection.map(a => a.traverse((b) => {
-        if(b.material) b.material.color.set(0xff0000);
+  if(typeof hover.parent !== 'undefined'){
+
+    // Does the object we're selecting already exist in the selection?
+    let index = selection.findIndex(a => a.uuid === hover.uuid);
+
+    // If so splice out existing element and change the material
+    if(index > -1){
+
+      let removed = selection.splice(index, 1)[0];
+      let col = removed.userData.attributes.drawColor;
+      let color = new THREE.Color(col.r/255, col.g/255, col.b/255);
+
+      removed.traverse((b) => {
+        if(b.material) b.material.color.set(color);
         return b;
-      })
-    );
+      });
+    } else {
+      // Otherwise set selection
+      selection.push(hover);
+
+      selection.map(a => a.traverse((b) => {
+          if(b.material) b.material.color.set(0xff0000);
+          return b;
+        })
+      );
+    }
     hover = {};
-    console.log(selection);
   } else {
-    // deselect
+    // Deselect
     selection.map(a => a.traverse((b) => {
         let col = a.userData.attributes.drawColor;
         let color = new THREE.Color(col.r/255, col.g/255, col.b/255);
@@ -274,4 +329,27 @@ function mouseUp(e){
   // controls.enabled = true;
 }
 
+function explodeDiagram(e){
+  // get value of the slider
+  // console.log(e.target.value);
+  let doc = scene.children.find(a => a.name === 'rhinoDoc');
+
+  // In the event of slider move ahead of model load
+  if(!doc) return;
+  
+  let dist = (e.target.value / 100) - displacementPos;
+  displacementPos = e.target.value / 100;
+
+  // displace model elements
+  for(let c of doc.children){
+    let max = c.userData.explode.max;
+    let vec = c.userData.explode.vec;
+    
+    c.translateOnAxis(vec, dist * max);
+  }
+}
+
 init();
+
+// export selection for use in the Context Menu
+export {selection};

@@ -6,17 +6,25 @@ html, body {
 
 body{
   display: flex;
+  flex-direction: column;
   background-color: #fffbf5;
 }
 
 #c {
+  display: block;
+
   width: 75%;
   height: 75%;
-  display: block;
-  border-radius: 3px;
-
-  box-shadow:  10px 10px 12px -4px rgba(0,0,0,0.35);
   margin: auto;
+
+  border-radius: 3px;
+  box-shadow:  10px 10px 12px -4px rgba(0,0,0,0.35);
+}
+
+#globalDisplacement {
+  margin: auto;
+  width: 75%;
+  margin-top: 0px;
 }
 
 canvas:focus, input:focus{

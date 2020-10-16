@@ -10,27 +10,33 @@
 
     <!-- Material Icons -->
     <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
-  </head>
-  
-  <body>
+    
     <!-- JS Code -->
     <script type="module" src="axonViewer.js"></script>
     <script type="module" src="contextMenu.js"></script>
-
+  </head>
+  
+  <body>
     <!-- Draggable User Interface -->
     <div id="contextMenu">
       <i id="closeMenu" class="material-icons">highlight_off</i>
-      <p class="inputLabel">Displacement</p>
-      <input type="range"/>
+      <p class="inputLabel">Displacement (X,Y,Z)</p>
+      <div id="numberGroup">
+        <input type="number" class="numberInput" id="X"/>
+        <input type="number" class="numberInput" id="Y"/>
+        <input type="number" class="numberInput" id="Z"/>
+      </div>
       <hr/>
-      <p class="inputLabel">Displacement Speed</p>
-      <input type="range"/>
+      <p class="inputLabel">Max Explode</p>
+      <input type="range" id="maxExplode" min="0" max="800"/>
       <hr/>
-      <p class="inputLabel">Opacity</p>
-      <input type="range"/>
+      <p class="inputLabel">Display Color</p>
+      <input type="color" id="modelColor">
     </div>
     <!-- Canvas -->
     <canvas id="c"></canvas>
+
+    <input type="range" id="globalDisplacement" min="0" max="100" value="0"/>
 
     <!-- Download Link -->
     <a id="downloadAnchorElem" style="display:none"></a>
