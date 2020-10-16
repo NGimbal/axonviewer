@@ -9,10 +9,10 @@ budo --dir . --live
 
 ## Features include:
 
-3dm loader to open up Rhino geometry
-Orbit Controls
-Displacement Paths
-Selection / Modify object attributes
+- [x] 3dm loader to open up Rhino geometry
+- [x] Orbit Controls
+- [x] Displacement Paths
+- [x] Selection / Modify object attributes
 
 ### No Framework
 
