@@ -4,8 +4,12 @@ This is a simple THREE.js model viewer, created for aectech2020 intro to THREE.j
 
 ## Run using Budo
 
+```
 npm i -g budo  </br>
+```
+```
 budo --dir . --live
+```
 
 ## Features include:
 
