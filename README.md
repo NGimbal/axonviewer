@@ -6,6 +6,8 @@ This is a simple THREE.js model viewer, created for aectech2020 intro to THREE.j
 
 ```
 npm i -g budo
+```
+```
 budo --dir . --live
 ```
 
