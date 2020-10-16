@@ -36,7 +36,7 @@ function init() {
   // Orthographic Camera
   // https://threejs.org/docs/#api/en/cameras/OrthographicCamera
   camera = new THREE.OrthographicCamera(-aspect, aspect, 1, -1, 0, 20000);
-  camera.position.set(-500, -500, 200);
+  camera.position.set(-200, -200, 100);
 
   // 2a. Orbit Controls
   // controls = new OrbitControls(camera, renderer.domElement);
@@ -45,16 +45,16 @@ function init() {
   // Scene bounding box
   sceneBox = new THREE.Box3();
 
-  // hover / selection                                 
-  // 4a. raycaster = new THREE.Raycaster;
+  // 4a. hover / selection                                 
+  // raycaster = new THREE.Raycaster;
   // Init mouse position so it's not sitting at the center of the screen
   // mouse = new THREE.Vector2(-1000);
   // selection = [];
   // hover = {};
 
   // Visualize origin
-  // var axesHelper = new THREE.AxesHelper( 200 );
-  // scene.add( axesHelper );
+  var axesHelper = new THREE.AxesHelper( 200 );
+  scene.add( axesHelper );
 
   // Lighting
   {
@@ -80,87 +80,17 @@ function init() {
   var loader = new Rhino3dmLoader();
   loader.setLibraryPath( './libs/rhino3dm/' );
 
-  loader.load( './models/maison.3dm', function ( rhinoDoc ) {
-    // We can see properties of rhinoDoc
-    // console.log(rhinoDoc);
+  loader.load( './models/maison.3dm', loadModel);
 
-    // Init scene Bounding box
-    sceneBox.setFromObject(rhinoDoc);
-    // let boxHelper = new THREE.Box3Helper(sceneBox, 0x0000ff);
-    // scene.add(boxHelper);
+  // 3a. Axon Explode
+  // document.querySelector("#globalDisplacement").addEventListener('input', explodeDiagram);
+  
+  // 4. Hover
+  // document.querySelector("#c").addEventListener('mousemove', mouseMove);
+  // document.querySelector("#c").addEventListener('pointerup', mouseUp);
 
-    // Name to identify rhino object node
-    rhinoDoc.name = 'rhinoDoc';
-
-    // Iterate through rhinoDoc and set material from Rhino document
-    rhinoDoc.children.map(child => {
-      // Access attributes from the Rhino document
-      let col = child.userData.attributes.drawColor;
-      let color = new THREE.Color(col.r/255, col.g/255, col.b/255);
-
-      let mat = new THREE.MeshLambertMaterial( {
-        color: color,
-      } );
-
-      // All objects have a position set to 0
-      // we need to recalculate their positions based on their bounding box
-      
-      // Meshes that are parented directly to the scene
-      if(!child.children.length && 
-              child.parent.name === 'rhinoDoc' && 
-              typeof child.geometry !== 'undefined'){
-
-        let box = new THREE.Box3().setFromObject(child);
-        
-        // let boxHelper = new THREE.Box3Helper(box, 0x00ffff);
-        // scene.add(boxHelper);
-
-        // Move child geometry to origin
-        let translation = new THREE.Vector3(0.0).sub(box.getCenter(new THREE.Vector3()));
-        child.geometry.translate(translation.x, translation.y, translation.z);
-
-        // Move position of child geometry to center of bounding box
-        box.getCenter(child.position);
-        
-        // Set mesh material
-        child.material = mat;
-      } else {
-        // Object3D with mesh children
-        let box = new THREE.Box3().setFromObject(child);
-        box.getCenter(child.position);
-
-        child.traverse(obj => {
-          if (child.uuid !== obj.uuid){
-            
-            box.getCenter(obj.position);
-            obj.position.multiplyScalar(-1);
-
-            obj.material = mat;
-          }
-        })
-      }
-
-      // Can we automate displacement paths?
-      let explode = sceneBox.getCenter(new THREE.Vector3()).sub(child.position).normalize().multiplyScalar(-1);
-      let maxExplode = 200;
-      
-      child.userData.explode = {vec: explode, max: maxExplode};
-    })
-
-    scene.add( rhinoDoc );
-    
-    zoomToScene();
-  });
-
-  // Hover
-  document.querySelector("#c").addEventListener('mousemove', mouseMove);
-  document.querySelector("#c").addEventListener('pointerup', mouseUp);
-
-  // Axon Explode
-  document.querySelector("#globalDisplacement").addEventListener('input', explodeDiagram);
-
-  // Screenshot
-  const elem = document.querySelector('#screenshot').addEventListener('click', screenshot);
+  // 5a. Screenshot
+  // const elem = document.querySelector('#screenshot').addEventListener('click', screenshot);
 
   requestAnimationFrame(animate);
 }
@@ -181,7 +111,8 @@ function render() {
     camera.top = side;
 
     camera.updateProjectionMatrix();
-    controls.update();
+    // 2c. Orbit Controls
+    // controls.update();
   }
 
   renderer.render(scene, camera);
@@ -201,7 +132,85 @@ function animate(){
   requestAnimationFrame(animate);
 }
 
+// 1. Load Rhino Model
+function loadModel ( rhinoDoc ) {
+  // We can see properties of rhinoDoc
+  console.log(rhinoDoc);
 
+  // Init scene Bounding box
+  sceneBox.setFromObject(rhinoDoc);
+  // let boxHelper = new THREE.Box3Helper(sceneBox, 0x0000ff);
+  // scene.add(boxHelper);
+
+  // Name to identify rhino object node
+  rhinoDoc.name = 'rhinoDoc';
+
+  // Iterate through rhinoDoc and set material from Rhino document
+  rhinoDoc.children.map(child => {
+    // Access attributes from the Rhino document
+    let col = child.userData.attributes.drawColor;
+    let color = new THREE.Color(col.r/255, col.g/255, col.b/255);
+
+    let mat = new THREE.MeshLambertMaterial( {
+      color: color,
+    } );
+
+    // 1d. All objects have a position set to 0
+    // we need to recalculate their positions based on their bounding box
+    
+    // Meshes that are parented directly to the scene
+    if(!child.children.length && 
+            child.parent.name === 'rhinoDoc' && 
+            typeof child.geometry !== 'undefined'){
+
+      // let boxHelper = new THREE.Box3Helper(box, 0x00ffff);
+      // scene.add(boxHelper);
+
+      // 1d. Get child bounding box
+      // let box = new THREE.Box3().setFromObject(child);
+      
+      // 1d. Move child geometry to origin
+      // let translation = new THREE.Vector3(0.0).sub(box.getCenter(new THREE.Vector3()));
+      // child.geometry.translate(translation.x, translation.y, translation.z);
+
+      // 1d. Move position of child geometry to center of bounding box
+      // box.getCenter(child.position);
+      
+      // Set mesh material
+      child.material = mat;
+    } else {
+      // Object3D with mesh children
+      // 1d.
+      // let box = new THREE.Box3().setFromObject(child);
+      // box.getCenter(child.position);
+
+      child.traverse(obj => {
+        if (child.uuid !== obj.uuid){
+          
+          // 1d.
+          // box.getCenter(obj.position);
+          // obj.position.multiplyScalar(-1);
+
+          obj.material = mat;
+        }
+      })
+
+      // 1d. Check positions of objects
+      // console.log(child.position);
+    }
+
+    // 3b. Can we automate displacement paths?
+    // let explode = sceneBox.getCenter(new THREE.Vector3()).sub(child.position).normalize().multiplyScalar(-1);
+    // let maxExplode = 200;
+    
+    // child.userData.explode = {vec: explode, max: maxExplode};
+  })
+
+  scene.add( rhinoDoc );
+  zoomToScene();
+}
+
+// 4b. Hover
 function updateSelState(){
   // Set our raycaster to begin selecting objects
   raycaster.setFromCamera(mouse, camera);
@@ -230,7 +239,7 @@ function updateSelState(){
       // Item 0 is the closest object
       hover = intersects[0].object;
 
-      // Grab the top level object that has access to
+      // Grab the top level object - that has access to
       // attributes from Rhino
       while(hover.parent.name !== 'rhinoDoc'){
         hover = hover.parent;
@@ -246,37 +255,6 @@ function updateSelState(){
       // controls.enabled = false;
     }
   }
-}
-
-// Zoom ortho camera to sceneBox
-function zoomToScene () {
-  // Choose largest dimension of scenebox to set the larger dimension of the viewport
-  let side = Math.max(sceneBox.max.x - sceneBox.min.x, sceneBox.max.z - sceneBox.min.z);
-
-  // Note: camera position and controls can't be the same
-  controls.target.set((sceneBox.max.x - sceneBox.min.x)/2, (sceneBox.max.y - sceneBox.min.y)/2, (sceneBox.max.z - sceneBox.min.z)/2);
-  
-  camera.left = aspect * side * -1;
-  camera.right = aspect * side;
-  camera.bottom = side * -1;
-  camera.top = side;
-
-  camera.updateProjectionMatrix();
-  controls.update();
-}
-
-// Resize canvas
-// https://threejsfundamentals.org/threejs/lessons/threejs-responsive.html
-function resizeRendererToDisplaySize(renderer) {
-  const canvas = renderer.domElement;
-  const pixelRatio = window.devicePixelRatio;
-  const width  = canvas.clientWidth | 0;
-  const height = canvas.clientHeight | 0;
-  const needResize = canvas.width !== width * pixelRatio || canvas.height !== height * pixelRatio ;
-  if (needResize) {
-    renderer.setSize(width, height, false);
-  }
-  return needResize;
 }
 
 //https://threejsfundamentals.org/threejs/lessons/threejs-picking.html
@@ -304,12 +282,15 @@ function mouseMove(e){
   // console.log(mouse);
 }
 
+// 4d. Selection
 function mouseUp(e){
-  // prevent menu clicks from causing this to fire
+  // Prevent menu clicks from causing this to fire
   if(e.target !== document.querySelector('#c')) return;
 
+  // Are we hovering?
   if(typeof hover.parent !== 'undefined'){
 
+    // Deselect
     // Does the object we're selecting already exist in the selection?
     let index = selection.findIndex(a => a.uuid === hover.uuid);
 
@@ -325,6 +306,7 @@ function mouseUp(e){
         return b;
       });
     } else {
+      // Select
       // Otherwise set selection
       selection.push(hover);
 
@@ -336,7 +318,7 @@ function mouseUp(e){
     }
     hover = {};
   } else {
-    // Deselect
+    // Deselect All
     selection.map(a => a.traverse((b) => {
         let col = a.userData.attributes.drawColor;
         let color = new THREE.Color(col.r/255, col.g/255, col.b/255);
@@ -349,18 +331,22 @@ function mouseUp(e){
   // controls.enabled = true;
 }
 
+// 3.
 function explodeDiagram(e){
   // get value of the slider
   // console.log(e.target.value);
+  
   let doc = scene.children.find(a => a.name === 'rhinoDoc');
 
   // In the event of slider move ahead of model load
   if(!doc) return;
   
+  // Distance is a percentage from initial position to maxPosition
+  // Max position is vec.multiplyScalar(max)
   let dist = (e.target.value / 100) - displacementPos;
   displacementPos = e.target.value / 100;
 
-  // displace model elements
+  // Displace model elements
   for(let c of doc.children){
     let max = c.userData.explode.max;
     let vec = c.userData.explode.vec;
@@ -369,12 +355,48 @@ function explodeDiagram(e){
   }
 }
 
+// 5.
+// https://threejsfundamentals.org/threejs/lessons/threejs-tips.html#screenshot
 function screenshot(e) {
   render();
   let canvas = renderer.domElement;
   canvas.toBlob((blob) => {
     saveBlob(blob, `screencapture-${canvas.width}x${canvas.height}.png`);
   });
+}
+
+// Zoom ortho camera to sceneBox
+function zoomToScene () {
+  // Choose largest dimension of scenebox to set the larger dimension of the viewport
+  let side = Math.max(sceneBox.max.x - sceneBox.min.x, sceneBox.max.z - sceneBox.min.z);
+
+  // 2c.
+  camera.lookAt((sceneBox.max.x - sceneBox.min.x), (sceneBox.max.y - sceneBox.min.y), (sceneBox.max.z - sceneBox.min.z));
+  // 2c. Orbit Controls
+  // Note: camera position and controls can't be the same
+  // controls.target.set((sceneBox.max.x - sceneBox.min.x)/2, (sceneBox.max.y - sceneBox.min.y)/2, (sceneBox.max.z - sceneBox.min.z)/2);
+  // controls.update();
+
+  camera.left = aspect * side * -1;
+  camera.right = aspect * side;
+  camera.bottom = side * -1;
+  camera.top = side;
+
+  camera.updateProjectionMatrix();
+}
+
+// Resize canvas
+// https://threejsfundamentals.org/threejs/lessons/threejs-responsive.html
+function resizeRendererToDisplaySize(renderer) {
+  const canvas = renderer.domElement;
+  const pixelRatio = window.devicePixelRatio;
+  const width  = canvas.clientWidth | 0;
+  const height = canvas.clientHeight | 0;
+  const needResize = canvas.width !== width * pixelRatio || canvas.height !== height * pixelRatio ;
+  if (needResize) {
+    renderer.setSize(width, height, false);
+  }
+  return needResize;
 }
 
 // https://threejsfundamentals.org/threejs/lessons/threejs-tips.html#screenshot

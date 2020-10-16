@@ -7,7 +7,6 @@ let posY = 0;
 
 let dragging = false;
 
-
 function main(){
   //------ open, drag, close ------
   document.querySelector('#c').addEventListener("contextmenu", showContextMenu);
@@ -39,7 +38,6 @@ function setMenuState(obj){
 }
 
 function changeX(e){
-  console.log("hi");
   let val = parseFloat(e.target.value);
   selection.map(obj => obj.userData.explode.vec.setX(val).normalize());
 }
